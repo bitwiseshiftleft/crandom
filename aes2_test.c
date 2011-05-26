@@ -6,8 +6,8 @@ int main(int argc, char **argv) {
   unsigned long long iv = 0;
   unsigned char data[128];
   for (int i=0; i<128; i++) data[i] = 0;
-  for (int i=0; i<10000000; i++) {
-    aes_expand(iv, 0, data, data);
+  for (int i=0; i<1000000; i++) {
+    aes_expand(0, iv, data, data);
     iv += 8;
   }
   printf("%llx\n", *(unsigned long long *)data);
