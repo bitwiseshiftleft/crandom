@@ -3,6 +3,10 @@
 #include <sys/types.h>
 #include <string.h>
 
+namespace crandom {
+
+#define USE_SMALL_TABLES 1
+
 static u_int8_t s[256] = 
 {
    0x63, 0x7C, 0x77, 0x7B, 0xF2, 0x6B, 0x6F, 0xC5,
@@ -39,28 +43,27 @@ static u_int8_t s[256] =
    0x41, 0x99, 0x2D, 0x0F, 0xB0, 0x54, 0xBB, 0x16
 };
 
-static u_int32_t t_table[1024];
+static u_int32_t t_table[USE_SMALL_TABLES ? 256 : 1024];
 
-u_int8_t d(u_int8_t x) {
+static inline u_int8_t d(u_int8_t x) {
   return (x<<1) ^ (x>>7)*283;
 }
 
 template<u_int32_t table>
-static inline u_int32_t T(u_int8_t x, u_int32_t y) {
-  y = y>>8 ^ y<<24;
-  return y ^ t_table[x];
-  //return t_table[table*256 + x] ^ y;
+static inline u_int32_t T(u_int8_t x) {
+  if (USE_SMALL_TABLES && table) {
+    u_int32_t y = t_table[x];
+    return y<<(8*table) ^ y >>(32-8*table);
+  } else {
+    return t_table[table*256 + x];
+  }
 }
 
-template<>
-static inline u_int32_t T<0>(u_int8_t x, u_int32_t y) {
-  return t_table[x] ^ y;
-}
-
-void fill_t_tables() {
+static void
+fill_t_tables() {
   for (int i=0; i<256; i++) {
     u_int32_t tt = s[i] * 0x10101ul ^ d(s[i]) * 0x1010000ul;
-    for (int j=0; j<4; j++) {
+    for (int j=0; j < (USE_SMALL_TABLES ? 1 : 4); j++) {
       t_table[j*256 + i] = tt;
       tt = tt<<24 ^ tt>>8;
     }
@@ -69,15 +72,7 @@ void fill_t_tables() {
 
 struct block { u_int32_t a,b,c,d; };
 
-void pvec(const block &x) {
-  for(int i=0; i<16; i++) {
-    printf("%02x", ((unsigned char *) &x)[i]);
-    if ((i&3) == 3) printf(" ");
-  }
-  printf("\n");
-}
-
-inline block int2block(u_int64_t x) {
+static inline block int2block(u_int64_t x) {
   block out = {x, x>>32, 0, 0};
   return out;
 }
@@ -101,74 +96,16 @@ assist1 (u_int32_t d) {
 }
 
 static void
-aes_enc (const block &subkey, block &bl) {
+aes_enc(const block &subkey, block &bl) {
   u_int32_t a=bl.a, b=bl.b, c=bl.c, d=bl.d, tmp;
   bl.a = T<0>(d>>24) ^ T<1>(c>>16&0xff) ^ T<2>(b>>8&0xff) ^ T<3>(a&0xff) ^ subkey.a;
   bl.b = T<0>(a>>24) ^ T<1>(d>>16&0xff) ^ T<2>(c>>8&0xff) ^ T<3>(b&0xff) ^ subkey.b;
   bl.c = T<0>(b>>24) ^ T<1>(a>>16&0xff) ^ T<2>(d>>8&0xff) ^ T<3>(c&0xff) ^ subkey.c;
   bl.d = T<0>(c>>24) ^ T<1>(b>>16&0xff) ^ T<2>(a>>8&0xff) ^ T<3>(d&0xff) ^ subkey.d;
-  /*
-  asm ( "movzbl %%al, %%esi\n\t"
-        "movl   3072(%[t], %%rsi, 4), %[aa]\n\t"
-        //"rorl   $8, %[aa]\n\t"
-        "movzbl %%bl, %%esi\n\t"
-        "movl   3072(%[t], %%rsi, 4), %[bb]\n\t"
-        //"rorl   $8, %[bb]\n\t"
-        "movzbl %%cl, %%esi\n\t"
-        "movl   3072(%[t], %%rsi, 4), %[cc]\n\t"
-        //"rorl   $8, %[cc]\n\t"
-        "movzbl %%dl, %%esi\n\t"
-        "movl   3072(%[t], %%rsi, 4), %[dd]\n\t"
-        //"rorl   $8, %[dd]\n\t"
-        "movzbl %%bh, %%esi\n\t"
-        "shrl   $16, %%ebx\n\t"
-        "xorl   2048(%[t], %%rsi, 4), %[aa]\n\t"
-        //"rorl   $8, %[aa]\n\t"
-        "movzbl %%ch, %%esi\n\t"
-        "shrl   $16, %%ecx\n\t"
-        "xorl   2048(%[t], %%rsi, 4), %[bb]\n\t"
-        //"rorl   $8, %[bb]\n\t"
-        "movzbl %%dh, %%esi\n\t"
-        "shrl   $16, %%edx\n\t"
-        "xorl   2048(%[t], %%rsi, 4), %[cc]\n\t"
-        //"rorl   $8, %[cc]\n\t"
-        "movzbl %%ah, %%esi\n\t"
-        "shrl   $16, %%eax\n\t"
-        "xorl   2048(%[t], %%rsi, 4), %[dd]\n\t"
-        //"rorl   $8, %[dd]\n\t"
-        "movzbl %%ch, %%esi\n\t"
-        "xorl   1024(%[t], %%rsi, 4), %[aa]\n\t"
-        //"rorl   $8, %[aa]\n\t"
-        "movzbl %%dh, %%esi\n\t"
-        "xorl   1024(%[t], %%rsi, 4), %[bb]\n\t"
-        //"rorl   $8, %[bb]\n\t"
-        "movzbl %%ah, %%esi\n\t"
-        "xorl   1024(%[t], %%rsi, 4), %[cc]\n\t"
-        //"rorl   $8, %[cc]\n\t"
-        "movzbl %%bh, %%esi\n\t"
-        "xorl   1024(%[t], %%rsi, 4), %[dd]\n\t"
-        //"rorl   $8, %[dd]\n\t"
-        "movzbl %%dh, %%esi\n\t"
-        "xorl   (%[t], %%rsi, 4), %[aa]\n\t"
-        "movzbl %%ah, %%esi\n\t"
-        "xorl   (%[t], %%rsi, 4), %[bb]\n\t"
-        "movzbl %%bh, %%esi\n\t"
-        "xorl   (%[t], %%rsi, 4), %[cc]\n\t"
-        "movzbl %%ch, %%esi\n\t"
-        "xorl   (%[t], %%rsi, 4), %[dd]\n\t"
-      : "+&a"(a), "+&b"(b), "+&c"(c), "+&d"(d)
-      , [aa]"=&r"(bl.a), [bb]"=&r"(bl.b), [cc]"=&r"(bl.c), [dd]"=&r"(bl.d)
-      : [t]"r"(t_table)
-      : "%rsi", "cc"
-    );
-  bl.a ^= subkey.a;
-  bl.b ^= subkey.b;
-  bl.c ^= subkey.c;
-  bl.d ^= subkey.d;
-  */
 }
 
-void aes_enc_last (const block &subkey, block &bl) {
+static void
+aes_enc_last(const block &subkey, block &bl) {
   u_int32_t a=bl.a, b=bl.b, c=bl.c, d=bl.d;
   bl.a = s[d>>24]<<24 ^ s[c>>16 & 0xff]<<16 ^ s[b>>8 & 0xff]<<8 ^ s[a & 0xff] ^ subkey.a;
   bl.b = s[a>>24]<<24 ^ s[d>>16 & 0xff]<<16 ^ s[c>>8 & 0xff]<<8 ^ s[b & 0xff] ^ subkey.b;
@@ -178,14 +115,22 @@ void aes_enc_last (const block &subkey, block &bl) {
 
 const int N=8;
 
-void aes256(unsigned long long iv, const block key[2], block data[N]) {
+extern "C" void aes_expand(unsigned long long iv, unsigned long long ctr, const block key[2], block data[N]) {
+  /* FIXME thread safety */
+  static bool t_tables_full = false;
+  if (!t_tables_full) {
+    fill_t_tables();
+    t_tables_full = true;
+  }
+
   block x = key[0], z=key[1];
-    
-  
+
   for (int i=0; i<N; i++) {
     data[i] = x;
-    data[i].a ^= iv + i;
-    data[i].b ^= (iv >> 32);
+    data[i].a ^= ctr + i;
+    data[i].b ^= ctr >> 32;
+    data[i].c ^= iv;
+    data[i].d ^= iv >> 32;
   }
   
   block
@@ -218,14 +163,14 @@ void aes256(unsigned long long iv, const block key[2], block data[N]) {
     z.c ^= z.b;
     z.d ^= z.c;
     
-    aes_enc(x, data0);    aes_enc(z, data0);
-    aes_enc(x, data1);    aes_enc(z, data1);
-    aes_enc(x, data2);    aes_enc(z, data2);
-    aes_enc(x, data3);    aes_enc(z, data3);
-    aes_enc(x, data4);    aes_enc(z, data4);
-    aes_enc(x, data5);    aes_enc(z, data5);
-    aes_enc(x, data6);    aes_enc(z, data6);
-    aes_enc(x, data7);    aes_enc(z, data7);
+    aes_enc(x, data0);  aes_enc(z, data0);
+    aes_enc(x, data1);  aes_enc(z, data1);
+    aes_enc(x, data2);  aes_enc(z, data2);
+    aes_enc(x, data3);  aes_enc(z, data3);
+    aes_enc(x, data4);  aes_enc(z, data4);
+    aes_enc(x, data5);  aes_enc(z, data5);
+    aes_enc(x, data6);  aes_enc(z, data6);
+    aes_enc(x, data7);  aes_enc(z, data7);
   }
   
   x.a ^= assist1(z.d) ^ 64;
@@ -243,14 +188,4 @@ void aes256(unsigned long long iv, const block key[2], block data[N]) {
   aes_enc_last(x, data7); data[7] = data7;
 }
 
-int main(int argc, char **argv) {
-  fill_t_tables();
-  block x[N] = {0,0,0,0,0,0,0,0};
-  unsigned long long iv = 0;
-  for (int i=0; i<1000000; i++) {
-    aes256(iv,x,x);
-    iv += N;
-  }
-  pvec(x[7]);
-  return 0;
-}
+}; // namespace crandom

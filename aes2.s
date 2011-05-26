@@ -1,6 +1,6 @@
   .text
-  .globl _aes_refill
-_aes_refill:
+  .globl _aes_expand
+_aes_expand:
   movdqa (%rdx), %xmm8
   
   # rsi = iv high side
@@ -92,20 +92,20 @@ L.loop:
   
 L.exit:
   aesenclast %xmm8, %xmm0
-  movdqa %xmm0, (%rdx)
+  movdqa %xmm0, (%rcx)
   aesenclast %xmm8, %xmm1
-  movdqa %xmm1, 0x10(%rdx)
+  movdqa %xmm1, 0x10(%rcx)
   aesenclast %xmm8, %xmm2
-  movdqa %xmm2, 0x20(%rdx)
+  movdqa %xmm2, 0x20(%rcx)
   aesenclast %xmm8, %xmm3
-  movdqa %xmm3, 0x30(%rdx)
+  movdqa %xmm3, 0x30(%rcx)
   aesenclast %xmm8, %xmm4
-  movdqa %xmm4, 0x40(%rdx)
+  movdqa %xmm4, 0x40(%rcx)
   aesenclast %xmm8, %xmm5
-  movdqa %xmm5, 0x50(%rdx)
+  movdqa %xmm5, 0x50(%rcx)
   aesenclast %xmm8, %xmm6
-  movdqa %xmm6, 0x60(%rdx)
+  movdqa %xmm6, 0x60(%rcx)
   aesenclast %xmm8, %xmm7
-  movdqa %xmm7, 0x70(%rdx)
+  movdqa %xmm7, 0x70(%rcx)
   
   ret

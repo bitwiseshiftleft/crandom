@@ -6,7 +6,7 @@
 #include <emmintrin.h>
 typedef __m128i ssereg;
 
-#define SHUFFLE(x,i) _mm_shuffle_epi32(x, \
+#define shuffle(x,i) _mm_shuffle_epi32(x, \
   i + ((i+1)&3)*4 + ((i+2)&3)*16 + ((i+3)&3)*64)
   
 static inline ssereg add(ssereg a, ssereg b) {
@@ -81,21 +81,21 @@ void chacha_expand(const unsigned char *key_,
       
         quarter_round(a1,b1,c1,d1);
         quarter_round(a2,b2,c2,d2);
-        b1 = SHUFFLE(b1,1);
-        c1 = SHUFFLE(c1,2);
-        d1 = SHUFFLE(d1,3);
-        b2 = SHUFFLE(b2,1);
-        c2 = SHUFFLE(c2,2);
-        d2 = SHUFFLE(d2,3);
+        b1 = shuffle(b1,1);
+        c1 = shuffle(c1,2);
+        d1 = shuffle(d1,3);
+        b2 = shuffle(b2,1);
+        c2 = shuffle(c2,2);
+        d2 = shuffle(d2,3);
         
         quarter_round(a1,b1,c1,d1);
         quarter_round(a2,b2,c2,d2);
-        b1 = SHUFFLE(b1,3);
-        c1 = SHUFFLE(c1,2);
-        d1 = SHUFFLE(d1,1);
-        b2 = SHUFFLE(b2,3);
-        c2 = SHUFFLE(c2,2);
-        d2 = SHUFFLE(d2,1);
+        b1 = shuffle(b1,3);
+        c1 = shuffle(c1,2);
+        d1 = shuffle(d1,1);
+        b2 = shuffle(b2,3);
+        c2 = shuffle(c2,2);
+        d2 = shuffle(d2,1);
       }
   
       output[0] = add(a1,aa);
