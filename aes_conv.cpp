@@ -51,12 +51,17 @@ static inline u_int8_t d(u_int8_t x) {
 
 template<u_int32_t table>
 static inline u_int32_t T(u_int8_t x) {
-  if (USE_SMALL_TABLES && table) {
+  if (USE_SMALL_TABLES) {
     u_int32_t y = t_table[x];
-    return y<<(8*table) ^ y >>(32-8*table);
+    return y>>(8*table) ^ y<<(32-8*table);
   } else {
     return t_table[table*256 + x];
   }
+}
+
+template<>
+static inline u_int32_t T<0>(u_int8_t x) {
+  return t_table[x];
 }
 
 static void
