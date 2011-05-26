@@ -5,10 +5,12 @@
 using namespace crandom;
 
 int main(int argc, char **argv) {
+  (void) argc; (void) argv;
+  
   //auto_seeded<chacha_generator> gen;
   chacha_generator gen(1024, false);
 
-  u_int32_t perm[20], y=0;
+  u_int32_t y=0;
 
   for (int i=0; i<100; i++) {
     //gen.random<u_int128_t>();
