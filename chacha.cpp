@@ -16,26 +16,33 @@ static inline ssereg add64(ssereg a, ssereg b) {
   return _mm_add_epi64(a,b);
 }
 
-template<int r>
-static inline ssereg rotate(ssereg a) {
-  return add(_mm_slli_epi32(a, r), _mm_srli_epi32(a, 32-r));
-}
-
-#ifdef __SSSE3__
-# include <tmmintrin.h>
-  static const ssereg shuffle8  = { 0x0605040702010003ull, 0x0E0D0C0F0A09080Bull };
-  static const ssereg shuffle16 = { 0x0504070601000302ull, 0x0D0C0F0E09080B0Aull };
-  
-  template<>
-  static inline ssereg rotate<8>(ssereg a) {
-    return _mm_shuffle_epi8(a, shuffle8);
+#ifdef __XOP__
+# include <xopintrin.h>
+  template<int r>
+  static inline ssereg rotate(ssereg a) {
+    return _mm_roti_epi32(a, r);
   }
-  
-  template<>
-  static inline ssereg rotate<16>(ssereg a) {
-    return _mm_shuffle_epi8(a, shuffle16);
+#else
+  template<int r>
+  static inline ssereg rotate(ssereg a) {
+    return add(_mm_slli_epi32(a, r), _mm_srli_epi32(a, 32-r));
   }
-#endif // __SSSE3__
+# ifdef __SSSE3__
+#   include <tmmintrin.h>
+    static const ssereg shuffle8  = { 0x0605040702010003ull, 0x0E0D0C0F0A09080Bull };
+    static const ssereg shuffle16 = { 0x0504070601000302ull, 0x0D0C0F0E09080B0Aull };
+    
+    template<>
+    static inline ssereg rotate<8>(ssereg a) {
+      return _mm_shuffle_epi8(a, shuffle8);
+    }
+    
+    template<>
+    static inline ssereg rotate<16>(ssereg a) {
+      return _mm_shuffle_epi8(a, shuffle16);
+    }
+  #endif // __SSSE3__
+#endif // __XOP__
 #endif // __SSE2__
 // -------------------------------------------------------------------------------
 
