@@ -59,11 +59,11 @@ quarter_round(t &a, t &b, t &c, t &d) {
 
 namespace crandom {
 
-void chacha_expand(const unsigned char *key_,
-                   u_int64_t iv,
+void chacha_expand(u_int64_t iv,
                    u_int64_t ctr,
                    int nr,
                    int output_size,
+                   const unsigned char *key_,
                    unsigned char *output_) {
 # ifdef __SSE2__
     ssereg *key = (ssereg *)key_;

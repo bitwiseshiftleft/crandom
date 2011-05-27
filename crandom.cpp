@@ -159,7 +159,7 @@ chacha_generator::refill() {
   if (!is_deterministic) {
     asm __volatile__ ("rdtsc" : "=A"(iv));
   }
-  chacha_expand(key(), iv, ctr, 12, buffer_size / 64, buffer);
+  chacha_expand(iv, ctr, 12, buffer_size / 64, key(), buffer);
   ctr += buffer_size / 64;
   fill = buffer_size - key_size;
 }
