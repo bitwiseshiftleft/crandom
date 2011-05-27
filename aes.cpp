@@ -50,8 +50,8 @@ aes_enc_last (const block &subkey, block &bl) {
 
 static const int N=8;
 
-void aes_expand(unsigned long long iv,
-                unsigned long long ctr,
+void aes_expand(u_int64_t iv,
+                u_int64_t ctr,
                 const unsigned char *key_,
                 unsigned char *data_) {
   
@@ -190,7 +190,7 @@ static inline u_int32_t T(u_int8_t x) {
 }
 
 template<>
-static inline u_int32_t T<0>(u_int8_t x) {
+inline u_int32_t T<0>(u_int8_t x) {
   return t_table[x];
 }
 
@@ -250,8 +250,8 @@ aes_enc_last(const block &subkey, block &bl) {
 
 static const int N=8;
 
-void aes_expand(unsigned long long iv,
-                unsigned long long ctr,
+void aes_expand(u_int64_t iv,
+                u_int64_t ctr,
                 const unsigned char *key_,
                 unsigned char *data_) {
   /* FIXME thread safety */

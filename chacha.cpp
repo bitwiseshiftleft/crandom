@@ -33,12 +33,12 @@ static inline ssereg add64(ssereg a, ssereg b) {
     static const ssereg shuffle16 = { 0x0504070601000302ull, 0x0D0C0F0E09080B0Aull };
     
     template<>
-    static inline ssereg rotate<8>(ssereg a) {
+    inline ssereg rotate<8>(ssereg a) {
       return _mm_shuffle_epi8(a, shuffle8);
     }
     
     template<>
-    static inline ssereg rotate<16>(ssereg a) {
+    inline ssereg rotate<16>(ssereg a) {
       return _mm_shuffle_epi8(a, shuffle16);
     }
   #endif // __SSSE3__
