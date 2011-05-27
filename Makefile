@@ -7,7 +7,7 @@ LDFLAGS= -g
 
 all: test_random bench
 
-test_random: test_random.o crandom.o chacha.o
+test_random: test_random.o crandom.o chacha.o aes.o
 	$(CXX) $(LDFLAGS) -o $@ $^
 
 bench: bench.o chacha.o aes.o
@@ -22,7 +22,7 @@ aes.o: aes.cpp aes.hpp Makefile
 crandom.o: crandom.cpp crandom.hpp chacha.hpp Makefile
 	$(CXX) $(CFLAGS) -c -o $@ $<
 
-test_random.o: test_random.cpp crandom.hpp chacha.hpp Makefile
+test_random.o: test_random.cpp crandom.hpp chacha.hpp aes.hpp Makefile
 	$(CXX) $(CFLAGS) -c -o $@ $<
 
 bench.o: bench.cpp chacha.hpp aes.hpp Makefile

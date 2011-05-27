@@ -6,6 +6,7 @@
 #include <strings.h>
 #include <string.h>
 #include <unistd.h>
+#include <algorithm>
 
 #ifndef likely
 #  define likely(x)       __builtin_expect((x),1)
@@ -27,6 +28,8 @@ public:
     if (unlikely(!fill)) refill();
     if (likely(fill >= n)) {
       fill -= (u_int32_t)n;
+      
+      // the compiler understands memcpy
       memcpy(output, buffer+fill, n);
       bzero(buffer+fill, n);
       return;
@@ -39,14 +42,10 @@ public:
     randomize((unsigned char *) &out, sizeof(out));
   }
   
-  // fast but slightly wasteful cases: one random element
   template<class T> inline
   T random() {
-    if (fill < sizeof(T)) refill();
-    fill -= sizeof(T);
-    T *buf = (T *)(&buffer[fill]);
-    T out = *buf;
-    *buf = 0;
+    T out;
+    randomize(out);
     return out;
   }
   
@@ -55,18 +54,14 @@ public:
   template<class integer>
   void permutation(integer *elements, u_int32_t n);
   
-  /*
   template<class it> void
   permute(it elements, u_int32_t n) {
     u_int32_t i;
     for (i=1; i<n; i++) {
       u_int32_t j = random<u_int32_t>(0,i);
-      decltype(elements[i]) tmp = elements[i];
-      elements[i] = elements[j];
-      elements[j] = tmp;
+      std::swap(elements[i], elements[j]);
     }
   }
-  */
   
   // stir in entropy
   // ... from a buffer
@@ -101,16 +96,24 @@ protected:
   unsigned char *buffer;
 };
 
-class chacha_generator : public generator_base {
+template<class prg>
+class prg_generator : public generator_base {
 public:
-  chacha_generator(u_int32_t buffer_size = 1024,
-                   bool is_deterministic = true)
-    : generator_base((buffer_size + 127) & -128, is_deterministic, 32)
+  prg_generator(bool is_deterministic = true)
+    : generator_base(prg::output_size, is_deterministic, prg::input_size)
     , ctr(0) {}
+
+  virtual void refill() {
+    u_int64_t iv = 0;
+    if (!is_deterministic) {
+      asm __volatile__ ("rdtsc" : "=A"(iv));
+    }
+    prg::expand(iv, ctr, key(), buffer);
+    fill = buffer_size - key_size;
+  }
 
 protected:
   u_int64_t ctr;
-  virtual void refill();
 };
 
 class dev_random_handle {

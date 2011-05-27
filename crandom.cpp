@@ -1,5 +1,6 @@
 #include "crandom.hpp"
 #include "chacha.hpp"
+#include "aes.hpp"
 
 #include <strings.h>
 #include <string.h>
@@ -153,17 +154,6 @@ dev_random_handle::~dev_random_handle() {
   }
 }
 
-void
-chacha_generator::refill() {
-  u_int64_t iv = 0;
-  if (!is_deterministic) {
-    asm __volatile__ ("rdtsc" : "=A"(iv));
-  }
-  chacha_expand(iv, ctr, 12, buffer_size / 64, key(), buffer);
-  ctr += buffer_size / 64;
-  fill = buffer_size - key_size;
-}
-
 template<class gen>
 void auto_seeded<gen>::stir() {
   reseeds_remaining = reseed_interval;
@@ -196,8 +186,6 @@ auto_seeded<gen>::refill() {
     gen::refill();
   reseeds_remaining--;
 }
-
-template class auto_seeded<chacha_generator>;
 
 template void generator_base::permutation(int8_t    *elements, u_int32_t n);
 template void generator_base::permutation(u_int8_t  *elements, u_int32_t n);
