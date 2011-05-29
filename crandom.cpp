@@ -116,6 +116,8 @@ void generator_base::randomize_slow_case
     
     memcpy(output, buffer + fill, transfer);
     bzero(buffer + fill, transfer);
+    
+    output += transfer;
   }
 }
 

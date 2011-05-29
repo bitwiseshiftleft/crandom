@@ -1,13 +1,17 @@
 CC= gcc
 CXX= g++
 
+#CFLAGS= -g -O1 -Wall -Wextra
 CFLAGS= -g -O2 -D__AES__ -mssse3 -Wall -Wextra
 #CFLAGS= -g -O2 -Wall -Wextra -mno-sse2
 LDFLAGS= -g
 
-all: test_random bench
+all: raw_random test_random bench
 
 test_random: test_random.o crandom.o chacha.o aes.o
+	$(CXX) $(LDFLAGS) -o $@ $^
+
+raw_random: raw_random.o crandom.o chacha.o aes.o
 	$(CXX) $(LDFLAGS) -o $@ $^
 
 bench: bench.o chacha.o aes.o
@@ -25,8 +29,11 @@ crandom.o: crandom.cpp crandom.hpp chacha.hpp Makefile
 test_random.o: test_random.cpp crandom.hpp chacha.hpp aes.hpp Makefile
 	$(CXX) $(CFLAGS) -c -o $@ $<
 
+raw_random.o: raw_random.cpp crandom.hpp chacha.hpp aes.hpp Makefile
+	$(CXX) $(CFLAGS) -c -o $@ $<
+
 bench.o: bench.cpp chacha.hpp aes.hpp Makefile
 	$(CXX) $(CFLAGS) -c -o $@ $<
 
 clean:
-	rm -f *.o test_random bench
+	rm -f *.o raw_random test_random bench

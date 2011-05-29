@@ -16,7 +16,7 @@ template<class generator>
 void test(int n) {
   unsigned char key[generator::input_size], output[generator::output_size];
   int i;
-  unsigned long long iv=0, ctr=0;
+  u_int64_t iv=0, ctr=0;
   for (i=0; i<32; i++) {
     key[i] = 0;
   }
