@@ -1,5 +1,5 @@
-CC= clang
-CXX= clang++
+CC= gcc
+CXX= g++
 
 #CFLAGS= -g -O1 -Wall -Wextra
 CFLAGS= -g -O2 -D__AES__ -mssse3 -Wall -Wextra

@@ -1,17 +1,13 @@
 #ifndef __CRANDOM_H__
 #define __CRANDOM_H__
 
-#include <sys/types.h>
+#include "intrinsics.h"
 
 #include <strings.h>
 #include <string.h>
 #include <unistd.h>
 #include <algorithm>
-
-#ifndef likely
-#  define likely(x)       __builtin_expect((x),1)
-#  define unlikely(x)     __builtin_expect((x),0)
-#endif
+#include <math.h>
 
 namespace crandom {
 
@@ -104,10 +100,7 @@ public:
     , ctr(0) {}
 
   virtual void refill() {
-    u_int64_t iv = 0;
-    if (!is_deterministic) {
-      asm __volatile__ ("rdtsc" : "=A"(iv));
-    }
+    u_int64_t iv = is_deterministic ? 0 : rdtsc();
     prg::expand(iv, ctr, key(), buffer);
     fill = buffer_size - key_size;
   }
@@ -115,6 +108,26 @@ public:
 protected:
   u_int64_t ctr;
 };
+
+template<> inline
+float generator_base::random<float>() {
+  return scalblnf(random<u_int32_t>(), -32);
+}
+
+template<> inline
+float generator_base::random<float>(float min, float max) {
+  return min + (max-min) * random<float>();
+}
+
+template<> inline
+double generator_base::random<double>() {
+  return scalbln(random<u_int64_t>(), -64);
+}
+
+template<> inline
+double generator_base::random<double>(double min, double max) {
+  return min + (max-min) * random<double>();
+}
 
 class dev_random_handle {
 public:
@@ -129,8 +142,8 @@ private:
 template <class gen>
 class auto_seeded : public gen {
 public:
-  auto_seeded(u_int32_t buffer_size = 1024, u_int32_t reseed_interval_ = 10000)
-    : gen(buffer_size, false), reseeds_remaining(0), reseed_interval(reseed_interval_) {}
+  auto_seeded(u_int32_t reseed_interval_ = 10000)
+    : gen(false), reseeds_remaining(0), reseed_interval(reseed_interval_) {}
 
 protected:
   virtual void stir();

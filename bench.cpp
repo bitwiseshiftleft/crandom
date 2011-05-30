@@ -45,9 +45,9 @@ void test(int n) {
     
     printf("%s: %0.1f MB / %0.3f sec = %0.1f MB/sec\nchecksum = ",
            generator::get_name().c_str(),
-           i * generator::output_size / double(n),
+           i * generator::output_size / 1000000.0,
            start,
-           i * generator::output_size / double(n) / start);
+           i * generator::output_size / 1000000.0 / start);
     for (i=0; i<16; i++) {
       printf("%02x", output[i]);
       if ((i&3)==3) printf(" ");
@@ -62,6 +62,7 @@ void test(int n) {
 
 int main(int argc, char **argv) {
   (void) argc; (void) argv;
+  crandom_features = crandom_detect_features();
   
   test<chacha, SSE2 | SSSE3 | XOP, SSE2 | SSSE3 | XOP>(1000000);
   test<chacha, SSE2 | SSSE3, SSE2 | SSSE3 | XOP>(1000000);

@@ -3,34 +3,106 @@
 #include "aes.hpp"
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/time.h>
+
+#include "intrinsics.h"
+
+static inline double
+now() {
+  struct timeval tp;
+  gettimeofday(&tp, 0);
+  return tp.tv_sec + double(tp.tv_usec)/1000000;
+}
+
+void print_features(unsigned int features) {
+  printf("   w/%s%s%s%s%s\n",
+         (features) ? "" : "??",
+         (features & SSE2)  ? " SSE2"  : "",
+         (features & SSSE3) ? " SSSE3" : "",
+         (features & AESNI) ? " AESNI" : "",
+         (features & XOP)   ? " XOP"   : "");
+}
 
 using namespace crandom;
+
+template<class gen, class t>
+void test(int n, unsigned int new_features, unsigned int of_features, gen *generator) {
+  unsigned int old_features = crandom_features,
+    good = HAVE(new_features) && ((new_features & MUST_MASK) == (MUST_MASK & of_features));
+  int i;
+  crandom_features = (crandom_features & ~of_features) | new_features | 1;
+  print_features(crandom_features);
+  
+  if (good) {
+    double start=now();
+    for (i=0; i<n; i++) {
+       generator->template random<t>();
+    }
+    start = now() - start;
+    
+    printf("%0.1f ME (%0.1f MB) / %0.3f sec = %0.1f MB/sec",
+           i / 1000000.0,
+           i * sizeof(t) / 1000000.0,
+           start,
+           i * sizeof(t) / 1000000.0 / start);
+    printf("\n\n");
+  } else {
+    printf("(unsupported)\n\n");
+  }
+  
+  crandom_features = old_features;
+}
 
 int main(int argc, char **argv) {
   (void) argc; (void) argv;
   
-  prg_generator<chacha> gen(false);
-
-  u_int32_t y=0, perm[100];
-  (void) y;
-
-  for (int i=0; i<1000000; i++) {
-    //gen.random<u_int128_t>();
-    //random();    
-
-    //printf("%d\n", gen.random<u_int32_t>(0,9));
-    gen.permutation(perm, 100);
-    //for (int j=0; j<20; j++) {
-    //  printf("%d ", perm[j]);
-    //}
-    //printf("\n");
-    
-    //u_int32_t x;
-    //gen.randomize(x);
-    //y += x;
-  }
-  //printf("%x\n", y);
-
+  crandom_features = crandom_detect_features();
+  
+  unsigned int chacha_features = SSE2 | SSSE3 | XOP, aes_features = AESNI;
+  
+  prg_generator<chacha> *ch = new prg_generator<chacha>();
+  prg_generator<aes> *ae = new prg_generator<aes>();
+  
+  printf("****** Generators and processor features ******\n\n");
+  
+  printf("chacha, direct, u_int32_t");
+  test<prg_generator<chacha>, u_int32_t>(100000000, SSE2 | SSSE3 | XOP, chacha_features, ch);
+  printf("chacha, direct, u_int32_t");
+  test<prg_generator<chacha>, u_int32_t>(100000000, SSE2 | SSSE3, chacha_features, ch);
+  printf("chacha, direct, u_int32_t");
+  test<prg_generator<chacha>, u_int32_t>(100000000, SSE2, chacha_features, ch);
+  printf("chacha, direct, u_int32_t");
+  test<prg_generator<chacha>, u_int32_t>(10000000, 0, chacha_features, ch);
+  
+  printf("aes, direct, u_int32_t");
+  test<prg_generator<aes>, u_int32_t>(100000000, AESNI, aes_features, ae);
+  printf("aes, direct, u_int32_t");
+  test<prg_generator<aes>, u_int32_t>(10000000, 0, aes_features, ae);
+  
+  printf("****** Data sizes ******\n\n");
+  
+  printf("chacha, direct, u_int128_t");
+  test<prg_generator<chacha>, u_int128_t>(100000000, 0, 0, ch);
+  printf("chacha, direct, u_int8_t");
+  test<prg_generator<chacha>, u_int8_t>(100000000, 0, 0, ch);
+  printf("chacha, direct, float");
+  test<prg_generator<chacha>, float>(100000000, 0, 0, ch);
+  printf("chacha, direct, double");
+  test<prg_generator<chacha>, double>(100000000, 0, 0, ch);
+  printf("aes, direct, u_int128_t");
+  test<prg_generator<aes>, u_int128_t>(100000000, AESNI, aes_features, ae);
+  printf("aes, direct, u_int8_t");
+  test<prg_generator<aes>, u_int8_t>(100000000, 0, 0, ae);
+  
+  printf("****** Indirection ******\n\n");
+  
+  printf("aes, indirect, u_int32_t");
+  test<generator_base, u_int32_t>(100000000, 0, 0,
+    opacify(1) ? static_cast<generator_base *>(ae) : static_cast<generator_base *>(ch));
+  printf("chacha, indirect, u_int32_t");
+  test<generator_base, u_int32_t>(100000000, 0, 0,
+    opacify(1) ? static_cast<generator_base *>(ch) : static_cast<generator_base *>(ae));
+  
   return 0;
 }
 

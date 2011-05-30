@@ -12,6 +12,19 @@
 #define AESNI  8
 #define XOP    16
 
+INTRINSIC u_int64_t rdtsc() {
+  u_int64_t out = 0;
+# if (defined(__i386__) || defined(__x86_64__))
+    asm __volatile__ ("rdtsc" : "=A"(out));
+# endif
+  return out;
+}
+
+INTRINSIC u_int64_t opacify(u_int64_t x) {
+  asm("mov %0, %0" : "+r"(x));
+  return x;
+}
+
 #ifdef __SSE2__
 #  define MIGHT_HAVE_SSE2 1
 #  ifndef MUST_HAVE_SSE2
