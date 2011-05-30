@@ -115,11 +115,15 @@ static const u_int8_t crandom_aes_sbox[256] =
 
 static u_int32_t crandom_aes_tbox[USE_SMALL_TABLES ? 256 : 1024];
 
+static inline u_int32_t rotate(u_int32_t r, u_int32_t x) {
+  return x<<r ^ x>>(32-r);
+}
+
 static inline u_int32_t T(int table, u_int8_t x) {
   if (USE_SMALL_TABLES) {
     u_int32_t y = crandom_aes_tbox[x];
     if (table) {
-      return y>>(8*table) ^ y<<(32-8*table);
+      return rotate(32-8*table, y);
     } else {
       return y;
     }
