@@ -1,4 +1,3 @@
-#include <sys/types.h>
 #include <string.h>
 #include "intrinsics.h"
 
@@ -12,7 +11,7 @@ crandom_aes_expand_aesni(u_int64_t iv,
                          u_int64_t ctr,
                          const unsigned char *key_,
                          unsigned char *data_) {
-  
+  int i;
   const ssereg *key = (const ssereg *) key_;
   ssereg *data = (ssereg *) data_;
   
@@ -24,7 +23,7 @@ crandom_aes_expand_aesni(u_int64_t iv,
   data0 ^= tmp; data1 ^= tmp; data2 ^= tmp; data3 ^= tmp;
   data4 ^= tmp; data5 ^= tmp; data6 ^= tmp; data7 ^= tmp;
   
-  for (int i=7;;) {
+  for (i=7;;) {
     ssereg t = aeskeygenassist(0,z), u;
     data0 = aesenc(z, data0);
     data1 = aesenc(z, data1);
@@ -131,20 +130,16 @@ static inline u_int32_t T(int table, u_int8_t x) {
 
 static void
 fill_t_tables() {
-  for (int i=0; i<256; i++) {
+  int i,j;
+  for (i=0; i<256; i++) {
     u_int32_t si = crandom_aes_sbox[i], dsi = (si<<1) ^ (si>>7)*283;
     u_int32_t tt = si * 0x10101ul ^ dsi * 0x1010000ul;
-    for (int j=0; j < (USE_SMALL_TABLES ? 1 : 4); j++, tt = tt<<24 ^ tt>>8)
+    for (j=0; j < (USE_SMALL_TABLES ? 1 : 4); j++, tt = tt<<24 ^ tt>>8)
       crandom_aes_tbox[j*256 + i] = tt;
   }
 }
 
-struct block { u_int32_t a,b,c,d; };
-
-static inline block int2block(u_int64_t x) {
-  block out = {x, x>>32, 0, 0};
-  return out;
-}
+typedef struct block { u_int32_t a,b,c,d; } block;
 
 static inline u_int32_t
 assist0 (u_int32_t d) {
@@ -185,18 +180,20 @@ crandom_aes_expand_conventional(u_int64_t iv,
                                 const unsigned char *key_,
                                 unsigned char *data_) {
   /* FIXME thread safety */
-  static bool t_tables_full = false;
+  static int t_tables_full = 0;
   if (!t_tables_full) {
     fill_t_tables();
-    t_tables_full = true;
+    t_tables_full = 1;
   }
   
   const block *key = (const block *) key_;
   block *data = (block *) data_;
 
   block x = key[0], z=key[1];
+  
+  int i;
 
-  for (int i=0; i<N; i++) {
+  for (i=0; i<N; i++) {
     data[i] = x;
     data[i].a ^= ctr + i;
     data[i].b ^= ctr >> 32;
@@ -223,7 +220,7 @@ crandom_aes_expand_conventional(u_int64_t iv,
   aes_enc(z, &data6);
   aes_enc(z, &data7);
   
-  for (int i=6;i;i--) {
+  for (i=6;i;i--) {
     x.a ^= assist1(z.d) ^ 64>>i;
     x.b ^= x.a;
     x.c ^= x.b;
@@ -261,7 +258,7 @@ crandom_aes_expand_conventional(u_int64_t iv,
 
 #endif // !MUST_HAVE(AESNI)
 
-extern "C" void
+extern_c void
 crandom_aes_expand(u_int64_t iv,
                    u_int64_t ctr,
                    const unsigned char *key,

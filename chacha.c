@@ -1,5 +1,3 @@
-#include <sys/types.h>
-#include "chacha.hpp"
 #include "intrinsics.h"
 
 // ------------------------------- Vectorized code -------------------------------
@@ -107,14 +105,13 @@ quarter_round(u_int32_t *a, u_int32_t *b, u_int32_t *c, u_int32_t *d) {
   *c = *c + *d; *b = rotate(7,  *b^*c);
 }
 
-namespace crandom {
-
-void chacha_expand(u_int64_t iv,
-                   u_int64_t ctr,
-                   int nr,
-                   int output_size,
-                   const unsigned char *key_,
-                   unsigned char *output_) {
+extern_c void
+crandom_chacha_expand(u_int64_t iv,
+                      u_int64_t ctr,
+                      int nr,
+                      int output_size,
+                      const unsigned char *key_,
+                      unsigned char *output_) {
 # if MIGHT_HAVE_SSE2
   if (HAVE(SSE2)) {
     ssereg *key = (ssereg *)key_;
@@ -201,7 +198,3 @@ void chacha_expand(u_int64_t iv,
   
 #endif // NEED_CONV
 }
-
-
-
-} // namespace crandom
