@@ -1,96 +1,40 @@
 #include <sys/types.h>
 #include <string.h>
+#include "intrinsics.h"
 
-#ifdef __AES__
+#if MIGHT_HAVE(AESNI)
 // ----------------------------------- AES-NI version -----------------------------------
 
-#include <xmmintrin.h>
-
-namespace crandom {
-
-typedef __m128i block;
 #define shift4(_x) _mm_slli_si128(_x,4)
-#define shift8(_x) _mm_slli_si128(_x,8)
-#define pslldq _mm_slli_epi32
-#define int2block _mm_cvtsi64_si128
-#define shuffle _mm_shuffle_epi32
 
-static inline volatile block
-assist0 (const block &in) {
-  block out;
-  asm __volatile__
-      ( "aeskeygenassist $0, %[in], %[out]"
-      : [out]"=x"(out) : [in]"x"(in)
-      );
-  return out;
-}
-
-static inline block
-assistU (const block &in, block &rc) {
-  block out = assist0(in) ^ rc;
-  rc = pslldq(rc,1);
-  return out;
-}
-
-static inline void __attribute__((__gnu_inline__, __always_inline__))
-aes_enc (const block &subkey, block &bl) {
-  asm __volatile__
-      ( "aesenc %[subkey], %[bl]"
-      : [bl]"+x"(bl) : [subkey]"x"(subkey)
-      );
-}
-
-static inline void __attribute__((__gnu_inline__, __always_inline__))
-aes_enc_last (const block &subkey, block &bl) {
-  asm __volatile__
-      ( "aesenclast %[subkey], %[bl]"
-      : [bl]"+x"(bl) : [subkey]"x"(subkey)
-      );
-}
-
-static const int N=8;
-
-void aes_expand(u_int64_t iv,
-                u_int64_t ctr,
-                const unsigned char *key_,
-                unsigned char *data_) {
+static inline void
+crandom_aes_expand_aesni(u_int64_t iv,
+                         u_int64_t ctr,
+                         const unsigned char *key_,
+                         unsigned char *data_) {
   
-  const block *key = (const block *) key_;
-  block *data = (block *) data_;
+  const ssereg *key = (const ssereg *) key_;
+  ssereg *data = (ssereg *) data_;
   
-  block x = key[0], z=key[1], rc={1,0}, tmp = { 0, iv };
-  
-  block
-    data0 = { ctr, 0 },
-    data1 = { ctr+1, 0 },
-    data2 = { ctr+2, 0 },
-    data3 = { ctr+3, 0 },
-    data4 = { ctr+4, 0 },
-    data5 = { ctr+5, 0 },
-    data6 = { ctr+6, 0 },
-    data7 = { ctr+7, 0 };
+  ssereg x = key[0], z=key[1], rc={1,0}, tmp={0, iv},
+    data0={ctr,   0}, data1={ctr+1, 0}, data2={ctr+2, 0}, data3={ctr+3, 0},
+    data4={ctr+4, 0}, data5={ctr+5, 0}, data6={ctr+6, 0}, data7={ctr+7, 0};
     
   tmp ^= x;
-  data0 ^= tmp;
-  data1 ^= tmp;
-  data2 ^= tmp;
-  data3 ^= tmp;
-  data4 ^= tmp;
-  data5 ^= tmp;
-  data6 ^= tmp;
-  data7 ^= tmp;
+  data0 ^= tmp; data1 ^= tmp; data2 ^= tmp; data3 ^= tmp;
+  data4 ^= tmp; data5 ^= tmp; data6 ^= tmp; data7 ^= tmp;
   
   for (int i=7;;) {
-    block t = assist0(z), u;
-    aes_enc(z, data0);
-    aes_enc(z, data1);
-    aes_enc(z, data2);
-    aes_enc(z, data3);
-    aes_enc(z, data4);
-    aes_enc(z, data5);
-    aes_enc(z, data6);
-    aes_enc(z, data7);
-    t = shuffle(t, 0xff);
+    ssereg t = aeskeygenassist(0,z), u;
+    data0 = aesenc(z, data0);
+    data1 = aesenc(z, data1);
+    data2 = aesenc(z, data2);
+    data3 = aesenc(z, data3);
+    data4 = aesenc(z, data4);
+    data5 = aesenc(z, data5);
+    data6 = aesenc(z, data6);
+    data7 = aesenc(z, data7);
+    t = pshufd(t, 0xff);
     x ^= rc;
     rc = pslldq(rc,1);
     u = shift4(x); x ^= u;
@@ -100,44 +44,41 @@ void aes_expand(u_int64_t iv,
     
     if (!--i) break;
     
-    t = assist0(x);
-    aes_enc(x, data0);
-    aes_enc(x, data1);
-    aes_enc(x, data2);
-    aes_enc(x, data3);
-    aes_enc(x, data4);
-    aes_enc(x, data5);
-    aes_enc(x, data6);
-    aes_enc(x, data7);
-    t = shuffle(t, 0xaa);
+    t = aeskeygenassist(0,x);
+    data0 = aesenc(x, data0);
+    data1 = aesenc(x, data1);
+    data2 = aesenc(x, data2);
+    data3 = aesenc(x, data3);
+    data4 = aesenc(x, data4);
+    data5 = aesenc(x, data5);
+    data6 = aesenc(x, data6);
+    data7 = aesenc(x, data7);
+    t = pshufd(t, 0xaa);
     u = shift4(z); z ^= u;
     u = shift4(u); z ^= u;
     u = shift4(u); z ^= u;
     z ^= t;
   }
   
-  aes_enc_last(x, data0); data[0] = data0;
-  aes_enc_last(x, data1); data[1] = data1;
-  aes_enc_last(x, data2); data[2] = data2;
-  aes_enc_last(x, data3); data[3] = data3;
-  aes_enc_last(x, data4); data[4] = data4;
-  aes_enc_last(x, data5); data[5] = data5;
-  aes_enc_last(x, data6); data[6] = data6;
-  aes_enc_last(x, data7); data[7] = data7;
+  data[0] = aesenclast(x, data0);
+  data[1] = aesenclast(x, data1);
+  data[2] = aesenclast(x, data2);
+  data[3] = aesenclast(x, data3);
+  data[4] = aesenclast(x, data4);
+  data[5] = aesenclast(x, data5);
+  data[6] = aesenclast(x, data6);
+  data[7] = aesenclast(x, data7);
 }
+#endif // __AES__
 
-} // namespace crandom
-
-#else // __AES__
 // ----------------------------------- non-AES-NI version -----------------------------------
-
-namespace crandom {
+#if (!MUST_HAVE(AESNI))
 
 #ifndef USE_SMALL_TABLES
 #  define USE_SMALL_TABLES 1
 #endif
 
-static const u_int8_t s[256] = 
+static const u_int8_t crandom_aes_sbox[256] = 
 {
    0x63, 0x7C, 0x77, 0x7B, 0xF2, 0x6B, 0x6F, 0xC5,
    0x30, 0x01, 0x67, 0x2B, 0xFE, 0xD7, 0xAB, 0x76,
@@ -173,35 +114,28 @@ static const u_int8_t s[256] =
    0x41, 0x99, 0x2D, 0x0F, 0xB0, 0x54, 0xBB, 0x16
 };
 
-static u_int32_t t_table[USE_SMALL_TABLES ? 256 : 1024];
+static u_int32_t crandom_aes_tbox[USE_SMALL_TABLES ? 256 : 1024];
 
-static inline u_int8_t d(u_int8_t x) {
-  return (x<<1) ^ (x>>7)*283;
-}
-
-template<u_int32_t table>
-static inline u_int32_t T(u_int8_t x) {
+static inline u_int32_t T(int table, u_int8_t x) {
   if (USE_SMALL_TABLES) {
-    u_int32_t y = t_table[x];
-    return y>>(8*table) ^ y<<(32-8*table);
+    u_int32_t y = crandom_aes_tbox[x];
+    if (table) {
+      return y>>(8*table) ^ y<<(32-8*table);
+    } else {
+      return y;
+    }
   } else {
-    return t_table[table*256 + x];
+    return crandom_aes_tbox[table*256 + x];
   }
-}
-
-template<>
-inline u_int32_t T<0>(u_int8_t x) {
-  return t_table[x];
 }
 
 static void
 fill_t_tables() {
   for (int i=0; i<256; i++) {
-    u_int32_t tt = s[i] * 0x10101ul ^ d(s[i]) * 0x1010000ul;
-    for (int j=0; j < (USE_SMALL_TABLES ? 1 : 4); j++) {
-      t_table[j*256 + i] = tt;
-      tt = tt<<24 ^ tt>>8;
-    }
+    u_int32_t si = crandom_aes_sbox[i], dsi = (si<<1) ^ (si>>7)*283;
+    u_int32_t tt = si * 0x10101ul ^ dsi * 0x1010000ul;
+    for (int j=0; j < (USE_SMALL_TABLES ? 1 : 4); j++, tt = tt<<24 ^ tt>>8)
+      crandom_aes_tbox[j*256 + i] = tt;
   }
 }
 
@@ -214,46 +148,42 @@ static inline block int2block(u_int64_t x) {
 
 static inline u_int32_t
 assist0 (u_int32_t d) {
-  u_int32_t c = s[d >> 24       ] << 24
-              ^ s[d >> 16 & 0xff] << 16
-              ^ s[d >>  8 & 0xff] <<  8
-              ^ s[d       & 0xff];
-  return c;
+  const u_int8_t *s = crandom_aes_sbox;
+  return s[d>>24]<<24 ^ s[d>>16&0xff]<<16 ^ s[d>>8&0xff]<<8 ^ s[d&0xff];
 }
 
 static inline u_int32_t
 assist1 (u_int32_t d) {
-  u_int32_t c = s[d >> 24       ] << 16
-              ^ s[d >> 16 & 0xff] <<  8
-              ^ s[d >>  8 & 0xff]
-              ^ s[d       & 0xff] << 24;
-  return c;
+  const u_int8_t *s = crandom_aes_sbox;
+  return s[d>>24]<<16 ^ s[d>>16&0xff]<<8 ^ s[d>>8&0xff] ^ s[d&0xff]<<24;
 }
 
 static void
-aes_enc(const block &subkey, block &bl) {
-  u_int32_t a=bl.a, b=bl.b, c=bl.c, d=bl.d;
-  bl.a = T<0>(d>>24) ^ T<1>(c>>16&0xff) ^ T<2>(b>>8&0xff) ^ T<3>(a&0xff) ^ subkey.a;
-  bl.b = T<0>(a>>24) ^ T<1>(d>>16&0xff) ^ T<2>(c>>8&0xff) ^ T<3>(b&0xff) ^ subkey.b;
-  bl.c = T<0>(b>>24) ^ T<1>(a>>16&0xff) ^ T<2>(d>>8&0xff) ^ T<3>(c&0xff) ^ subkey.c;
-  bl.d = T<0>(c>>24) ^ T<1>(b>>16&0xff) ^ T<2>(a>>8&0xff) ^ T<3>(d&0xff) ^ subkey.d;
+aes_enc(const block subkey, block *bl) {
+  u_int32_t a=bl->a, b=bl->b, c=bl->c, d=bl->d;
+  bl->a = T(0,d>>24) ^ T(1,c>>16&0xff) ^ T(2,b>>8&0xff) ^ T(3,a&0xff) ^ subkey.a;
+  bl->b = T(0,a>>24) ^ T(1,d>>16&0xff) ^ T(2,c>>8&0xff) ^ T(3,b&0xff) ^ subkey.b;
+  bl->c = T(0,b>>24) ^ T(1,a>>16&0xff) ^ T(2,d>>8&0xff) ^ T(3,c&0xff) ^ subkey.c;
+  bl->d = T(0,c>>24) ^ T(1,b>>16&0xff) ^ T(2,a>>8&0xff) ^ T(3,d&0xff) ^ subkey.d;
 }
 
 static void
-aes_enc_last(const block &subkey, block &bl) {
-  u_int32_t a=bl.a, b=bl.b, c=bl.c, d=bl.d;
-  bl.a = s[d>>24]<<24 ^ s[c>>16 & 0xff]<<16 ^ s[b>>8 & 0xff]<<8 ^ s[a & 0xff] ^ subkey.a;
-  bl.b = s[a>>24]<<24 ^ s[d>>16 & 0xff]<<16 ^ s[c>>8 & 0xff]<<8 ^ s[b & 0xff] ^ subkey.b;
-  bl.c = s[b>>24]<<24 ^ s[a>>16 & 0xff]<<16 ^ s[d>>8 & 0xff]<<8 ^ s[c & 0xff] ^ subkey.c;
-  bl.d = s[c>>24]<<24 ^ s[b>>16 & 0xff]<<16 ^ s[a>>8 & 0xff]<<8 ^ s[d & 0xff] ^ subkey.d;
+aes_enc_last(const block subkey, block *bl) {
+  const u_int8_t *s = crandom_aes_sbox;
+  u_int32_t a=bl->a, b=bl->b, c=bl->c, d=bl->d;
+  bl->a = s[d>>24]<<24 ^ s[c>>16 & 0xff]<<16 ^ s[b>>8 & 0xff]<<8 ^ s[a & 0xff] ^ subkey.a;
+  bl->b = s[a>>24]<<24 ^ s[d>>16 & 0xff]<<16 ^ s[c>>8 & 0xff]<<8 ^ s[b & 0xff] ^ subkey.b;
+  bl->c = s[b>>24]<<24 ^ s[a>>16 & 0xff]<<16 ^ s[d>>8 & 0xff]<<8 ^ s[c & 0xff] ^ subkey.c;
+  bl->d = s[c>>24]<<24 ^ s[b>>16 & 0xff]<<16 ^ s[a>>8 & 0xff]<<8 ^ s[d & 0xff] ^ subkey.d;
 }
 
 static const int N=8;
 
-void aes_expand(u_int64_t iv,
-                u_int64_t ctr,
-                const unsigned char *key_,
-                unsigned char *data_) {
+static inline void
+crandom_aes_expand_conventional(u_int64_t iv,
+                                u_int64_t ctr,
+                                const unsigned char *key_,
+                                unsigned char *data_) {
   /* FIXME thread safety */
   static bool t_tables_full = false;
   if (!t_tables_full) {
@@ -284,14 +214,14 @@ void aes_expand(u_int64_t iv,
     data6 = data[6],
     data7 = data[7];
     
-  aes_enc(z, data0);
-  aes_enc(z, data1);
-  aes_enc(z, data2);
-  aes_enc(z, data3);
-  aes_enc(z, data4);
-  aes_enc(z, data5);
-  aes_enc(z, data6);
-  aes_enc(z, data7);
+  aes_enc(z, &data0);
+  aes_enc(z, &data1);
+  aes_enc(z, &data2);
+  aes_enc(z, &data3);
+  aes_enc(z, &data4);
+  aes_enc(z, &data5);
+  aes_enc(z, &data6);
+  aes_enc(z, &data7);
   
   for (int i=6;i;i--) {
     x.a ^= assist1(z.d) ^ 64>>i;
@@ -304,14 +234,14 @@ void aes_expand(u_int64_t iv,
     z.c ^= z.b;
     z.d ^= z.c;
     
-    aes_enc(x, data0);  aes_enc(z, data0);
-    aes_enc(x, data1);  aes_enc(z, data1);
-    aes_enc(x, data2);  aes_enc(z, data2);
-    aes_enc(x, data3);  aes_enc(z, data3);
-    aes_enc(x, data4);  aes_enc(z, data4);
-    aes_enc(x, data5);  aes_enc(z, data5);
-    aes_enc(x, data6);  aes_enc(z, data6);
-    aes_enc(x, data7);  aes_enc(z, data7);
+    aes_enc(x, &data0);  aes_enc(z, &data0);
+    aes_enc(x, &data1);  aes_enc(z, &data1);
+    aes_enc(x, &data2);  aes_enc(z, &data2);
+    aes_enc(x, &data3);  aes_enc(z, &data3);
+    aes_enc(x, &data4);  aes_enc(z, &data4);
+    aes_enc(x, &data5);  aes_enc(z, &data5);
+    aes_enc(x, &data6);  aes_enc(z, &data6);
+    aes_enc(x, &data7);  aes_enc(z, &data7);
   }
   
   x.a ^= assist1(z.d) ^ 64;
@@ -319,16 +249,30 @@ void aes_expand(u_int64_t iv,
   x.c ^= x.b;
   x.d ^= x.c;
   
-  aes_enc_last(x, data0); data[0] = data0;
-  aes_enc_last(x, data1); data[1] = data1;
-  aes_enc_last(x, data2); data[2] = data2;
-  aes_enc_last(x, data3); data[3] = data3;
-  aes_enc_last(x, data4); data[4] = data4;
-  aes_enc_last(x, data5); data[5] = data5;
-  aes_enc_last(x, data6); data[6] = data6;
-  aes_enc_last(x, data7); data[7] = data7;
+  aes_enc_last(x, &data0); data[0] = data0;
+  aes_enc_last(x, &data1); data[1] = data1;
+  aes_enc_last(x, &data2); data[2] = data2;
+  aes_enc_last(x, &data3); data[3] = data3;
+  aes_enc_last(x, &data4); data[4] = data4;
+  aes_enc_last(x, &data5); data[5] = data5;
+  aes_enc_last(x, &data6); data[6] = data6;
+  aes_enc_last(x, &data7); data[7] = data7;
 }
 
-}; // namespace crandom
+#endif // !MUST_HAVE(AESNI)
 
-#endif // __AES__
+extern "C" void
+crandom_aes_expand(u_int64_t iv,
+                   u_int64_t ctr,
+                   const unsigned char *key,
+                   unsigned char *data) {
+# if (MIGHT_HAVE(AESNI))
+    if (HAVE(AESNI)) {
+      crandom_aes_expand_aesni(iv, ctr, key, data);
+      return;
+    }
+# endif
+# if (!MUST_HAVE(AESNI))
+    crandom_aes_expand_conventional(iv, ctr, key, data);
+# endif
+}

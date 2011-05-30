@@ -8,19 +8,19 @@ LDFLAGS= -g
 
 all: raw_random test_random bench
 
-test_random: test_random.o crandom.o chacha.o aes.o
+test_random: test_random.o crandom.o chacha.o aes.o intrinsics.o
 	$(CXX) $(LDFLAGS) -o $@ $^
 
-raw_random: raw_random.o crandom.o chacha.o aes.o
+raw_random: raw_random.o crandom.o chacha.o aes.o intrinsics.o
 	$(CXX) $(LDFLAGS) -o $@ $^
 
-bench: bench.o chacha.o aes.o
+bench: bench.o chacha.o aes.o intrinsics.o
 	$(CXX) $(LDFLAGS) -o $@ $^
 
-chacha.o: chacha.cpp chacha.hpp Makefile
+chacha.o: chacha.cpp chacha.hpp intrinsics.h Makefile
 	$(CXX) $(CFLAGS) -c -o $@ $<
 
-aes.o: aes.cpp aes.hpp Makefile
+aes.o: aes.cpp aes.hpp intrinsics.h Makefile
 	$(CXX) $(CFLAGS) -c -o $@ $<
 
 crandom.o: crandom.cpp crandom.hpp chacha.hpp Makefile

@@ -3,12 +3,13 @@
 
 #include <sys/types.h>
 
-namespace crandom {
+extern "C" void
+crandom_aes_expand(u_int64_t iv,
+                   u_int64_t ctr,
+                   const unsigned char *key_,
+                   unsigned char *output_);
 
-void aes_expand(u_int64_t iv,
-                u_int64_t ctr,
-                const unsigned char *key_,
-                unsigned char *output_);
+namespace crandom {
 
 class aes {
 public:
@@ -23,7 +24,7 @@ public:
                      u_int64_t &ctr,
                      const unsigned char input[input_size],
                      unsigned char output[output_size]) {
-    aes_expand(iv, ctr, input, output);
+    crandom_aes_expand(iv, ctr, input, output);
     ctr += input_size/16;
   }
 };
