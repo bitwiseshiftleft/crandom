@@ -7,7 +7,7 @@
 
 using namespace crandom;
 
-static volatile inline double
+static inline double
 now() {
   struct timeval tp;
   gettimeofday(&tp, 0);

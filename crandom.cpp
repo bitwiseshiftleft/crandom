@@ -30,7 +30,6 @@ static inline u_int32_t prec(T x) {
 
 template<u_int128_t>
 static inline u_int32_t prec(u_int128_t x) {
-  u_int64_t out;
   if (x >> 64) {
     return 64+prec<u_int64_t>(x>>64);
   } else {
@@ -199,4 +198,5 @@ template void generator_base::permutation(int64_t   *elements, u_int32_t n);
 template void generator_base::permutation(u_int64_t *elements, u_int32_t n);
 
 } // namespace crandom
+
 
