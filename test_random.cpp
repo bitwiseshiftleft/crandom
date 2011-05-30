@@ -53,6 +53,39 @@ void test(int n, unsigned int new_features, unsigned int of_features, gen *gener
   crandom_features = old_features;
 }
 
+void test_rand(int n) {
+  int i;
+  double start=now();
+  for (i=0; i<n; i++) {
+    rand();
+  }
+  start = now() - start;
+  
+  printf("%0.1f ME (%0.1f MB) / %0.3f sec = %0.1f MB/sec",
+         i / 1000000.0,
+         i * sizeof(int) / 1000000.0,
+         start,
+         i * sizeof(int) / 1000000.0 / start);
+  printf("\n\n");
+}
+
+void test_drand48(int n) {
+  int i;
+  double start=now();
+  for (i=0; i<n; i++) {
+    drand48();
+  }
+  start = now() - start;
+  
+  printf("%0.1f ME (%0.1f MB) / %0.3f sec = %0.1f MB/sec",
+         i / 1000000.0,
+         i * 6 / 1000000.0,
+         start,
+         i * 6 / 1000000.0 / start);
+  printf("\n\n");
+}
+
+
 int main(int argc, char **argv) {
   (void) argc; (void) argv;
   
@@ -60,9 +93,8 @@ int main(int argc, char **argv) {
   
   unsigned int chacha_features = SSE2 | SSSE3 | XOP, aes_features = AESNI;
   
-  prg_generator<chacha> *ch = new prg_generator<chacha>();
-  prg_generator<aes> *ae = new prg_generator<aes>();
-  
+  prg_generator<chacha> *ch = new prg_generator<chacha>(true);
+  prg_generator<aes> *ae = new prg_generator<aes>(true);
   printf("****** Generators and processor features ******\n\n");
   
   printf("chacha, direct, u_int32_t");
@@ -78,6 +110,12 @@ int main(int argc, char **argv) {
   test<prg_generator<aes>, u_int32_t>(100000000, AESNI, aes_features, ae);
   printf("aes, direct, u_int32_t");
   test<prg_generator<aes>, u_int32_t>(10000000, 0, aes_features, ae);
+  
+  printf("rand, int\n");
+  test_rand(100000000);
+  
+  printf("drand48, int\n");
+  test_drand48(10000000);
   
   printf("****** Data sizes ******\n\n");
   

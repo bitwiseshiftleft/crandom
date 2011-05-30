@@ -111,7 +111,11 @@ protected:
 
 template<> inline
 float generator_base::random<float>() {
-  return scalblnf(random<u_int32_t>(), -32);
+  // return scalblnf(random<u_int32_t>(), -32);
+  // This seems to work around a bug in GCC on the Mac:
+  union { float f; u_int32_t i; } out;
+  out.i = (random<u_int32_t>() >> 9) | 0x3f800000;
+  return out.f - 1.0;
 }
 
 template<> inline
@@ -121,7 +125,10 @@ float generator_base::random<float>(float min, float max) {
 
 template<> inline
 double generator_base::random<double>() {
-  return scalbln(random<u_int64_t>(), -64);
+  // return scalbln(random<u_int64_t>(), -64);
+  union { double f; u_int64_t i; } out;
+  out.i = (random<u_int64_t>() >> 12) | 0x3ff0000000000000ull;
+  return out.f - 1.0;
 }
 
 template<> inline
