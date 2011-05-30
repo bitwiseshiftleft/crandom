@@ -17,11 +17,14 @@ raw_random: raw_random.o crandom.o chacha.o aes.o intrinsics.o
 bench: bench.o chacha.o aes.o intrinsics.o
 	$(CXX) $(LDFLAGS) -o $@ $^
 
-chacha.o: chacha.cpp chacha.hpp intrinsics.h Makefile
-	$(CXX) $(CFLAGS) -c -o $@ $<
+chacha.o: chacha.c chacha.hpp intrinsics.h Makefile
+	$(CC) $(CFLAGS) -c -o $@ $<
 
-aes.o: aes.cpp aes.hpp intrinsics.h Makefile
-	$(CXX) $(CFLAGS) -c -o $@ $<
+aes.o: aes.c aes.hpp intrinsics.h Makefile
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+intrinsics.o: intrinsics.c intrinsics.h Makefile
+	$(CC) $(CFLAGS) -c -o $@ $<
 
 crandom.o: crandom.cpp crandom.hpp chacha.hpp Makefile
 	$(CXX) $(CFLAGS) -c -o $@ $<

@@ -5,16 +5,17 @@
 #include <string>
 #include <sstream>
 
-namespace crandom {
-
 // niter must be even
 // output = 64*niter bytes
-void chacha_expand(u_int64_t iv,
-                   u_int64_t ctr,
-                   int nr,
-                   int output_size,
-                   const unsigned char *key_,
-                   unsigned char *output_);
+extern "C"
+void crandom_chacha_expand(u_int64_t iv,
+                           u_int64_t ctr,
+                           int nr,
+                           int output_size,
+                           const unsigned char *key_,
+                           unsigned char *output_);
+
+namespace crandom {
 
 template<int nr, int buffer_size>
 class v_chacha {
@@ -32,7 +33,7 @@ public:
                      u_int64_t &ctr,
                      const unsigned char input[input_size],
                      unsigned char output[output_size]) {
-    chacha_expand(iv, ctr, nr, output_size, input, output);
+    crandom_chacha_expand(iv, ctr, nr, output_size, input, output);
     ctr += output_size/64;
   }
 };

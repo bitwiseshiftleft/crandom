@@ -91,8 +91,6 @@ INTRINSIC ssereg xop_rotate(int amount, ssereg x) {
 #  define MUST_HAVE_XOP 0
 #endif
 
-
-
 #define MIGHT_MASK \
   ( SSE2  * MIGHT_HAVE_SSE2   \
   | SSSE3 * MIGHT_HAVE_SSSE3  \
@@ -108,15 +106,27 @@ INTRINSIC ssereg xop_rotate(int amount, ssereg x) {
 #define MIGHT_HAVE(feature) ((MIGHT_MASK & feature) == feature)
 #define MUST_HAVE(feature) ((MUST_MASK & feature) == feature)
 
+#ifdef __cplusplus
+#  define extern_c extern "C"
+#else
+#  define extern_c
+#endif
+
+extern_c
 unsigned int crandom_detect_features();
+
+#ifndef likely
+#  define likely(x)       __builtin_expect((x),1)
+#  define unlikely(x)     __builtin_expect((x),0)
+#endif
 
 extern unsigned int crandom_features;
 static inline int HAVE(unsigned int feature) {
   if (!MIGHT_HAVE(feature)) return 0;
   if (MUST_HAVE(feature))   return 1;
-  if (!crandom_features)
+  if (unlikely(!crandom_features))
     crandom_features = crandom_detect_features();
-  return (crandom_features & feature) == feature;
+  return likely((crandom_features & feature) == feature);
 }
 
 #endif // __CRANDOM_INTRINSICS_H__
