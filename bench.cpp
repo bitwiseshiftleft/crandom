@@ -47,7 +47,7 @@ void test(int n) {
            i * generator::output_size / 1000000.0,
            start,
            i * generator::output_size / 1000000.0 / start);
-    for (i=0; i<16; i++) {
+    for (i=16; i<32; i++) {
       printf("%02x", output[i]);
       if ((i&3)==3) printf(" ");
     }

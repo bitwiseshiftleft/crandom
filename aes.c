@@ -184,13 +184,35 @@ crandom_aes_expand_conventional(u_int64_t iv,
     keysch[8*i+15] = zd = zd ^ zc;
   }
   
+  u_int32_t a,b,c,d,aa,bb,cc,a1,a2,b2,c2,d2;
+  
+  // round zero, ctc
+  a = keysch[0] ^ (ctr);
+  b = keysch[1] ^ (ctr>>32);
+  c = keysch[2] ^ (iv);
+  d = keysch[3] ^ (iv>>32);
+  
+  // round one, ctc
+  a1 = T(0,d>>24) ^ T(1,c>>16&0xff) ^ T(2,b>>8&0xff) ^ /***********/ keysch[4*0+4];
+  b2 = T(0,a>>24) ^ T(1,d>>16&0xff) ^ T(2,c>>8&0xff) ^ T(3,b&0xff) ^ keysch[4*0+5];
+  c2 = T(0,b>>24) ^ T(1,a>>16&0xff) ^ T(2,d>>8&0xff) ^ T(3,c&0xff) ^ keysch[4*0+6];
+  d2 = T(0,c>>24) ^ T(1,b>>16&0xff) ^ T(2,a>>8&0xff) ^ T(3,d&0xff) ^ keysch[4*0+7];
+  a = a1; b = b2; c = c2; d = d2;
+  
+  // round two, ctc
+  a2 = T(0,d>>24) ^ T(1,c>>16&0xff) ^ T(2,b>>8&0xff) ^ /***********/ keysch[4*1+4];
+  b2 = /**********/ T(1,d>>16&0xff) ^ T(2,c>>8&0xff) ^ T(3,b&0xff) ^ keysch[4*1+5];
+  c2 = T(0,b>>24) ^ /***************/ T(2,d>>8&0xff) ^ T(3,c&0xff) ^ keysch[4*1+6];
+  d2 = T(0,c>>24) ^ T(1,b>>16&0xff) ^ /**************/ T(3,d&0xff) ^ keysch[4*1+7];
+  
   for (i=0; i<N; i++) {
-    u_int32_t a,b,c,d,aa,bb,cc;
-    a = keysch[0] ^ (ctr+i);
-    b = keysch[1] ^ (ctr>>32);
-    c = keysch[2] ^ (iv);
-    d = keysch[3] ^ (iv>>32);
-    for (j=0; j<13; j++) {
+    aa = a1 ^ T(3,((ctr+i)^keysch[0]) & 0xff);
+    a = a2 ^ T(3,aa&0xff);
+    b = b2 ^ T(0,aa>>24);
+    c = c2 ^ T(1,aa>>16&0xff);
+    d = d2 ^ T(2,aa>>8&0xff);
+      
+    for (j=2; j<13; j++) {
       aa = T(0,d>>24) ^ T(1,c>>16&0xff) ^ T(2,b>>8&0xff) ^ T(3,a&0xff) ^ keysch[4*j+4];
       bb = T(0,a>>24) ^ T(1,d>>16&0xff) ^ T(2,c>>8&0xff) ^ T(3,b&0xff) ^ keysch[4*j+5];
       cc = T(0,b>>24) ^ T(1,a>>16&0xff) ^ T(2,d>>8&0xff) ^ T(3,c&0xff) ^ keysch[4*j+6];
