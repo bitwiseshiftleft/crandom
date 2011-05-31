@@ -28,19 +28,21 @@ static inline u_int32_t prec(T x) {
   return out;
 }
 
-template<u_int128_t>
-static inline u_int32_t prec(u_int128_t x) {
-  if (x >> 64) {
-    return 64+prec<u_int64_t>(x>>64);
-  } else {
-    return prec<u_int64_t>(x);
+#ifdef __x86_64__
+  template<u_int128_t>
+  static inline u_int32_t prec(u_int128_t x) {
+    if (x >> 64) {
+      return 64+prec<u_int64_t>(x>>64);
+    } else {
+      return prec<u_int64_t>(x);
+    }
   }
-}
-
-template<u_int128_t>
-static inline int32_t prec(u_int128_t x) {
-  return prec(u_int128_t(x));
-}
+  
+  template<u_int128_t>
+  static inline int32_t prec(u_int128_t x) {
+    return prec(u_int128_t(x));
+  }
+#endif
 
 template<class T>
 static inline T prec_mask(T x) {
@@ -67,12 +69,15 @@ template int8_t     generator_base::random(int8_t     min, int8_t     max);
 template int16_t    generator_base::random(int16_t    min, int16_t    max);
 template int32_t    generator_base::random(int32_t    min, int32_t    max);
 template int64_t    generator_base::random(int64_t    min, int64_t    max);
-template int128_t   generator_base::random(int128_t   min, int128_t   max);
 template u_int8_t   generator_base::random(u_int8_t   min, u_int8_t   max);
 template u_int16_t  generator_base::random(u_int16_t  min, u_int16_t  max);
 template u_int32_t  generator_base::random(u_int32_t  min, u_int32_t  max);
 template u_int64_t  generator_base::random(u_int64_t  min, u_int64_t  max);
-template u_int128_t generator_base::random(u_int128_t min, u_int128_t max);
+
+#ifdef __x86_64__
+  template int128_t   generator_base::random(int128_t   min, int128_t   max);
+  template u_int128_t generator_base::random(u_int128_t min, u_int128_t max);
+#endif
 
 // stir in entropy
 // FIXME: should we use a hash here? probably...

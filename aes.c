@@ -143,41 +143,6 @@ fill_t_tables() {
   }
 }
 
-typedef struct block { u_int32_t a,b,c,d; } block;
-
-static inline u_int32_t
-assist0 (u_int32_t d) {
-  const u_int8_t *s = crandom_aes_sbox;
-  return s[d>>24]<<24 ^ s[d>>16&0xff]<<16 ^ s[d>>8&0xff]<<8 ^ s[d&0xff];
-}
-
-static inline u_int32_t
-assist1 (u_int32_t d) {
-  const u_int8_t *s = crandom_aes_sbox;
-  return s[d>>24]<<16 ^ s[d>>16&0xff]<<8 ^ s[d>>8&0xff] ^ s[d&0xff]<<24;
-}
-
-static void
-aes_enc(const block subkey, block *bl) {
-  u_int32_t a=bl->a, b=bl->b, c=bl->c, d=bl->d;
-  bl->a = T(0,d>>24) ^ T(1,c>>16&0xff) ^ T(2,b>>8&0xff) ^ T(3,a&0xff) ^ subkey.a;
-  bl->b = T(0,a>>24) ^ T(1,d>>16&0xff) ^ T(2,c>>8&0xff) ^ T(3,b&0xff) ^ subkey.b;
-  bl->c = T(0,b>>24) ^ T(1,a>>16&0xff) ^ T(2,d>>8&0xff) ^ T(3,c&0xff) ^ subkey.c;
-  bl->d = T(0,c>>24) ^ T(1,b>>16&0xff) ^ T(2,a>>8&0xff) ^ T(3,d&0xff) ^ subkey.d;
-}
-
-static void
-aes_enc_last(const block subkey, block *bl) {
-  const u_int8_t *s = crandom_aes_sbox;
-  u_int32_t a=bl->a, b=bl->b, c=bl->c, d=bl->d;
-  bl->a = s[d>>24]<<24 ^ s[c>>16 & 0xff]<<16 ^ s[b>>8 & 0xff]<<8 ^ s[a & 0xff] ^ subkey.a;
-  bl->b = s[a>>24]<<24 ^ s[d>>16 & 0xff]<<16 ^ s[c>>8 & 0xff]<<8 ^ s[b & 0xff] ^ subkey.b;
-  bl->c = s[b>>24]<<24 ^ s[a>>16 & 0xff]<<16 ^ s[d>>8 & 0xff]<<8 ^ s[c & 0xff] ^ subkey.c;
-  bl->d = s[c>>24]<<24 ^ s[b>>16 & 0xff]<<16 ^ s[a>>8 & 0xff]<<8 ^ s[d & 0xff] ^ subkey.d;
-}
-
-static const int N=8;
-
 static inline void
 crandom_aes_expand_conventional(u_int64_t iv,
                                 u_int64_t ctr,
@@ -190,74 +155,54 @@ crandom_aes_expand_conventional(u_int64_t iv,
     t_tables_full = 1;
   }
   
-  const block *key = (const block *) key_;
-  block *data = (block *) data_;
-
-  block x = key[0], z=key[1];
+  static const int N=8;
   
-  int i;
-
+  const u_int32_t *key = (const u_int32_t *) key_;
+  u_int32_t *data = (u_int32_t *) data_;
+  
+  int i,j;
+  
+  u_int32_t xa=key[0], xb=key[1], xc=key[2], xd=key[3],
+            za=key[4], zb=key[5], zc=key[6], zd=key[7],
+            keysch[15*4] = {xa,xb,xc,xd,za,zb,zc,zd};
+            
+  const u_int8_t *s = crandom_aes_sbox;
+  
+  for (i=0;; i++) {
+    keysch[8*i+8]  = xa = xa ^ s[zd>>24]<<16 ^ s[zd>>16&0xff]<<8
+                             ^ s[zd>>8&0xff] ^ s[zd&0xff]<<24 ^ 1<<i;
+    keysch[8*i+9]  = xb = xb ^ xa;
+    keysch[8*i+10] = xc = xc ^ xb;
+    keysch[8*i+11] = xd = xd ^ xc;
+    
+    if (i == 6) break;
+    
+    keysch[8*i+12] = za = za ^ s[xd>>24]<<24 ^ s[xd>>16&0xff]<<16
+                             ^ s[xd>>8&0xff]<<8 ^ s[xd&0xff];
+    keysch[8*i+13] = zb = zb ^ za;
+    keysch[8*i+14] = zc = zc ^ zb;
+    keysch[8*i+15] = zd = zd ^ zc;
+  }
+  
   for (i=0; i<N; i++) {
-    data[i] = x;
-    data[i].a ^= ctr + i;
-    data[i].b ^= ctr >> 32;
-    data[i].c ^= iv;
-    data[i].d ^= iv >> 32;
+    u_int32_t a,b,c,d,aa,bb,cc;
+    a = keysch[0] ^ (ctr+i);
+    b = keysch[1] ^ (ctr>>32);
+    c = keysch[2] ^ (iv);
+    d = keysch[3] ^ (iv>>32);
+    for (j=0; j<13; j++) {
+      aa = T(0,d>>24) ^ T(1,c>>16&0xff) ^ T(2,b>>8&0xff) ^ T(3,a&0xff) ^ keysch[4*j+4];
+      bb = T(0,a>>24) ^ T(1,d>>16&0xff) ^ T(2,c>>8&0xff) ^ T(3,b&0xff) ^ keysch[4*j+5];
+      cc = T(0,b>>24) ^ T(1,a>>16&0xff) ^ T(2,d>>8&0xff) ^ T(3,c&0xff) ^ keysch[4*j+6];
+      d  = T(0,c>>24) ^ T(1,b>>16&0xff) ^ T(2,a>>8&0xff) ^ T(3,d&0xff) ^ keysch[4*j+7];
+      a = aa; b = bb; c = cc;
+    }
+    data[4*i+0] = s[d>>24]<<24 ^ s[c>>16&0xff]<<16 ^ s[b>>8&0xff]<<8 ^ s[a&0xff] ^ keysch[14*4+0];
+    data[4*i+1] = s[a>>24]<<24 ^ s[d>>16&0xff]<<16 ^ s[c>>8&0xff]<<8 ^ s[b&0xff] ^ keysch[14*4+1];
+    data[4*i+2] = s[b>>24]<<24 ^ s[a>>16&0xff]<<16 ^ s[d>>8&0xff]<<8 ^ s[c&0xff] ^ keysch[14*4+2];
+    data[4*i+3] = s[c>>24]<<24 ^ s[b>>16&0xff]<<16 ^ s[a>>8&0xff]<<8 ^ s[d&0xff] ^ keysch[14*4+3];
   }
-  
-  block
-    data0 = data[0],
-    data1 = data[1],
-    data2 = data[2],
-    data3 = data[3],
-    data4 = data[4],
-    data5 = data[5],
-    data6 = data[6],
-    data7 = data[7];
-    
-  aes_enc(z, &data0);
-  aes_enc(z, &data1);
-  aes_enc(z, &data2);
-  aes_enc(z, &data3);
-  aes_enc(z, &data4);
-  aes_enc(z, &data5);
-  aes_enc(z, &data6);
-  aes_enc(z, &data7);
-  
-  for (i=6;i;i--) {
-    x.a ^= assist1(z.d) ^ 64>>i;
-    x.b ^= x.a;
-    x.c ^= x.b;
-    x.d ^= x.c;
-    
-    z.a ^= assist0(x.d);
-    z.b ^= z.a;
-    z.c ^= z.b;
-    z.d ^= z.c;
-    
-    aes_enc(x, &data0);  aes_enc(z, &data0);
-    aes_enc(x, &data1);  aes_enc(z, &data1);
-    aes_enc(x, &data2);  aes_enc(z, &data2);
-    aes_enc(x, &data3);  aes_enc(z, &data3);
-    aes_enc(x, &data4);  aes_enc(z, &data4);
-    aes_enc(x, &data5);  aes_enc(z, &data5);
-    aes_enc(x, &data6);  aes_enc(z, &data6);
-    aes_enc(x, &data7);  aes_enc(z, &data7);
-  }
-  
-  x.a ^= assist1(z.d) ^ 64;
-  x.b ^= x.a;
-  x.c ^= x.b;
-  x.d ^= x.c;
-  
-  aes_enc_last(x, &data0); data[0] = data0;
-  aes_enc_last(x, &data1); data[1] = data1;
-  aes_enc_last(x, &data2); data[2] = data2;
-  aes_enc_last(x, &data3); data[3] = data3;
-  aes_enc_last(x, &data4); data[4] = data4;
-  aes_enc_last(x, &data5); data[5] = data5;
-  aes_enc_last(x, &data6); data[6] = data6;
-  aes_enc_last(x, &data7); data[7] = data7;
+  bzero(keysch, sizeof(keysch));
 }
 
 #endif // !MUST_HAVE(AESNI)

@@ -11,8 +11,10 @@
 
 namespace crandom {
 
-typedef          int   int128_t __attribute__((mode(TI)));
-typedef unsigned int u_int128_t __attribute__((mode(TI)));
+#ifdef __x86_64__
+  typedef          int   int128_t __attribute__((mode(TI)));
+  typedef unsigned int u_int128_t __attribute__((mode(TI)));
+#endif
 
 class generator_base {
 public:

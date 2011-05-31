@@ -33,9 +33,8 @@ void test(int n) {
     unsigned char key[generator::input_size], output[generator::output_size];
     int i;
     u_int64_t iv=0, ctr=0;
-    for (i=0; i<32; i++) {
-      key[i] = 0;
-    }
+    bzero(key, sizeof(key));
+    bzero(output, sizeof(output));
     
     double start=now();
     for (i=0; i<n; i++) {
