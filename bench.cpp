@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <sys/time.h>
 
+#include "crandom.hpp"
+
 #include "intrinsics.h"
 
 using namespace crandom;

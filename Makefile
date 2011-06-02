@@ -1,5 +1,8 @@
-CC= clang
-CXX= clang++
+#CC=gcc
+#CXX=g++
+
+CC= clang -I/usr/include/x86_64-linux-gnu/ -I/usr/include/c++/4.5 -I/usr/include/c++/4.5/x86_64-linux-gnu
+CXX= clang++ -I/usr/include/x86_64-linux-gnu/ -I/usr/include/c++/4.5 -I/usr/include/c++/4.5/x86_64-linux-gnu
 
 #CFLAGS= -g -O1 -Wall -Wextra
 CFLAGS= -g -O2 -D__AES__ -mssse3 -Wall -Wextra
