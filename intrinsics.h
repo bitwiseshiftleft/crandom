@@ -21,7 +21,7 @@ INTRINSIC u_int64_t rdtsc() {
 }
 
 INTRINSIC u_int64_t opacify(u_int64_t x) {
-  asm("mov %0, %0" : "+r"(x));
+  asm volatile("mov %0, %0" : "+r"(x));
   return x;
 }
 

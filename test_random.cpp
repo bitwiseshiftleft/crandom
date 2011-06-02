@@ -25,7 +25,7 @@ void print_features(unsigned int features) {
 
 using namespace crandom;
 
-template<class gen, class t>
+template<class gen, class t, bool slow>
 void test(int n, unsigned int new_features, unsigned int of_features, gen *generator) {
   unsigned int old_features = crandom_features,
     good = HAVE(new_features) && ((new_features & MUST_MASK) == (MUST_MASK & of_features));
@@ -33,10 +33,18 @@ void test(int n, unsigned int new_features, unsigned int of_features, gen *gener
   crandom_features = (crandom_features & ~of_features) | new_features | 1;
   print_features(crandom_features);
   
+  t out = 0;
   if (good) {
+  
     double start=now();
     for (i=0; i<n; i++) {
-       generator->template random<t>();
+      if (slow) {
+        t x;
+        generator->randomize_slow_case((unsigned char *) &x, sizeof(x));
+        out += x;
+      } else {
+        out += generator->template random<t>();
+      }
     }
     start = now() - start;
     
@@ -51,6 +59,7 @@ void test(int n, unsigned int new_features, unsigned int of_features, gen *gener
   }
   
   crandom_features = old_features;
+  opacify(out);
 }
 
 void test_rand(int n) {
@@ -132,18 +141,18 @@ int main(int argc, char **argv) {
   printf("****** Generators and processor features ******\n\n");
   
   printf("chacha, direct, u_int32_t");
-  test<prg_generator<chacha>, u_int32_t>(100000000, SSE2 | SSSE3 | XOP, chacha_features, ch);
+  test<prg_generator<chacha>, u_int32_t, false>(100000000, SSE2 | SSSE3 | XOP, chacha_features, ch);
   printf("chacha, direct, u_int32_t");
-  test<prg_generator<chacha>, u_int32_t>(100000000, SSE2 | SSSE3, chacha_features, ch);
+  test<prg_generator<chacha>, u_int32_t, false>(100000000, SSE2 | SSSE3, chacha_features, ch);
   printf("chacha, direct, u_int32_t");
-  test<prg_generator<chacha>, u_int32_t>(100000000, SSE2, chacha_features, ch);
+  test<prg_generator<chacha>, u_int32_t, false>(100000000, SSE2, chacha_features, ch);
   printf("chacha, direct, u_int32_t");
-  test<prg_generator<chacha>, u_int32_t>(10000000, 0, chacha_features, ch);
+  test<prg_generator<chacha>, u_int32_t, false>(10000000, 0, chacha_features, ch);
   
   printf("aes, direct, u_int32_t");
-  test<prg_generator<aes>, u_int32_t>(100000000, AESNI, aes_features, ae);
+  test<prg_generator<aes>, u_int32_t, false>(100000000, AESNI, aes_features, ae);
   printf("aes, direct, u_int32_t");
-  test<prg_generator<aes>, u_int32_t>(10000000, 0, aes_features, ae);
+  test<prg_generator<aes>, u_int32_t, false>(10000000, 0, aes_features, ae);
   
   printf("rand, int\n");
   test_rand(100000000);
@@ -162,25 +171,28 @@ int main(int argc, char **argv) {
   printf("****** Data sizes ******\n\n");
   
   printf("chacha, direct, u_int128_t");
-  test<prg_generator<chacha>, u_int128_t>(100000000, 0, 0, ch);
+  test<prg_generator<chacha>, u_int128_t, false>(100000000, 0, 0, ch);
   printf("chacha, direct, u_int8_t");
-  test<prg_generator<chacha>, u_int8_t>(100000000, 0, 0, ch);
+  test<prg_generator<chacha>, u_int8_t, false>(100000000, 0, 0, ch);
   printf("chacha, direct, float");
-  test<prg_generator<chacha>, float>(100000000, 0, 0, ch);
+  test<prg_generator<chacha>, float, false>(100000000, 0, 0, ch);
   printf("chacha, direct, double");
-  test<prg_generator<chacha>, double>(100000000, 0, 0, ch);
+  test<prg_generator<chacha>, double, false>(100000000, 0, 0, ch);
   printf("aes, direct, u_int128_t");
-  test<prg_generator<aes>, u_int128_t>(100000000, AESNI, aes_features, ae);
+  test<prg_generator<aes>, u_int128_t, false>(100000000, AESNI, aes_features, ae);
   printf("aes, direct, u_int8_t");
-  test<prg_generator<aes>, u_int8_t>(100000000, 0, 0, ae);
+  test<prg_generator<aes>, u_int8_t, false>(100000000, 0, 0, ae);
   
   printf("****** Indirection ******\n\n");
   
   printf("aes, indirect, u_int32_t");
-  test<generator_base, u_int32_t>(100000000, 0, 0,
+  test<generator_base, u_int32_t, false>(100000000, 0, 0,
     opacify(1) ? static_cast<generator_base *>(ae) : static_cast<generator_base *>(ch));
   printf("chacha, indirect, u_int32_t");
-  test<generator_base, u_int32_t>(100000000, 0, 0,
+  test<generator_base, u_int32_t, false>(100000000, 0, 0,
+    opacify(1) ? static_cast<generator_base *>(ch) : static_cast<generator_base *>(ae));
+  printf("chacha, indirect, u_int32_t, slow case");
+  test<generator_base, u_int32_t, true>(100000000, 0, 0,
     opacify(1) ? static_cast<generator_base *>(ch) : static_cast<generator_base *>(ae));
   
   return 0;

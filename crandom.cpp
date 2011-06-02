@@ -97,9 +97,9 @@ void generator_base::stir
 
 // create a new PRNG
 generator_base::generator_base (u_int32_t bs, bool det, u_int32_t ks)
-  : buffer_size(bs), key_size(ks), is_deterministic(det), fill(0)
+  : buffer_size(bs), key_size(ks), is_deterministic(det), fill(0),
+    buffer((unsigned char *)secure_malloc(buffer_size))
 {
-  buffer = (unsigned char *)secure_malloc(buffer_size);
   stir();
 }
 

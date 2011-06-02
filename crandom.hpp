@@ -21,30 +21,44 @@ public:
   ~generator_base();
 
   // slow case: fill a buffer with randomness
-  void randomize_slow_case(unsigned char *output, size_t n);
-  void randomize(unsigned char *output, size_t n) {
+  void randomize_slow_case(unsigned char *__restrict__ output, size_t n);
+  
+  // hopefully-faster case
+  void randomize(unsigned char *__restrict__ output, size_t n) {
     if (unlikely(!fill)) refill();
     if (likely(fill >= n)) {
       fill -= (u_int32_t)n;
       
-      // the compiler understands memcpy
+      // the compiler will optimize this if n is known and small (eg 4)
       memcpy(output, buffer+fill, n);
       bzero(buffer+fill, n);
-      return;
+    } else {
+      randomize_slow_case(output, n);
     }
-    randomize_slow_case(output, n);
   }
   
   template<class T>
   void randomize(T &out) {
-    randomize((unsigned char *) &out, sizeof(out));
+    // randomize((unsigned char *) &out, sizeof(out));
+    out = random<T>();
   }
   
   template<class T> inline
   T random() {
-    T out;
-    randomize(out);
-    return out;
+    // T out; randomize(out); return out;
+    //   Clang optimizes memcpy to a couple movs, but it still insists on
+    //   copying through memory.  Therefore this is faster:
+    if (unlikely(!fill)) refill();
+    if (likely(fill >= sizeof(T))) {
+      fill -= sizeof(T);
+      T out = *(T*)(buffer+fill);
+      bzero(buffer+fill, sizeof(T));
+      return out;
+    } else {
+      T out;
+      randomize_slow_case((unsigned char *)&out, sizeof(T));
+      return out;
+    }
   }
   
   template<class T> T random(T min, T max);
@@ -91,7 +105,7 @@ protected:
   const bool is_deterministic;
   
   u_int32_t fill;
-  unsigned char *buffer;
+  unsigned char *__restrict__ buffer;
 };
 
 template<class prg>
