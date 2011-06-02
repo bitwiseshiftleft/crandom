@@ -69,6 +69,40 @@ void test_rand(int n) {
   printf("\n\n");
 }
 
+void test_random(int n) {
+  int i;
+  double start=now();
+  for (i=0; i<n; i++) {
+    random();
+  }
+  start = now() - start;
+  
+  printf("%0.1f ME (%0.1f MB) / %0.3f sec = %0.1f MB/sec",
+         i / 1000000.0,
+         i * sizeof(int) / 1000000.0,
+         start,
+         i * sizeof(int) / 1000000.0 / start);
+  printf("\n\n");
+}
+
+#ifdef __MAC_10_0
+void test_arc4random(int n) {
+  int i;
+  double start=now();
+  for (i=0; i<n; i++) {
+    arc4random();
+  }
+  start = now() - start;
+  
+  printf("%0.1f ME (%0.1f MB) / %0.3f sec = %0.1f MB/sec",
+         i / 1000000.0,
+         i * sizeof(int) / 1000000.0,
+         start,
+         i * sizeof(int) / 1000000.0 / start);
+  printf("\n\n");
+}
+#endif
+
 void test_drand48(int n) {
   int i;
   double start=now();
@@ -113,6 +147,14 @@ int main(int argc, char **argv) {
   
   printf("rand, int\n");
   test_rand(100000000);
+  
+  printf("random, int\n");
+  test_random(100000000);
+  
+  #ifdef __MAC_10_0
+    printf("arc4random, int\n");
+    test_arc4random(10000000);
+  #endif
   
   printf("drand48, int\n");
   test_drand48(10000000);
