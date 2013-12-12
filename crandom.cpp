@@ -91,7 +91,7 @@ void generator_base::stir
     }
     n -= i;
     entropy += i;
-    if (n > 0) refill();
+    refill();
   }
 }
 
